@@ -47,30 +47,37 @@ app.layout = html.Div([
         html.Div([
             dcc.Graph(
                 id = 'grafico-de-vendas',
-                style = {'height':'80vh'}
+                style = {'height':'100vh'}
             )
-        ], style={'width': '60%', 'display': 'inline-block'}),
+        ], style={'width': '50%', 'display': 'inline-block'}),
 
         #gráfico de pizza
         html.Div([
             dcc.Graph(
-                id = 'grafico-pizza-regiao',
-                style = {'height':'40vh'}
+                id = 'grafico-regiao',
+                style = {'height':'60vh'}
             )
-        ],style={'width': '40%', 'display': 'inline-block'})
+        ],style={'width': '50%', 'display': 'inline-block'})
     ],style={'display': 'flex'})
 ])
 
 @app.callback(
     [Output('grafico-de-vendas','figure'),
-     Output('grafico-pizza-regiao', 'figure')],
+     Output('grafico-regiao', 'figure')],
     Input('seguimento', 'value')
 )
 
 def update_graph(seguimento_selecionado):
+    #filtragem dos dados de vendas
     dados_filtrados =  dataset[dataset['Segment'].isin(seguimento_selecionado)]
     dados_agg = dados_filtrados.groupby(['Ano','Category'], as_index = False)['Sales'].sum()
 
+    #filtragem da porcentagem de vendas por região
+    region_year = dados_filtrados.groupby(['Ano', 'Region'], as_index=False)['Sales'].sum()
+    total_sales = region_year.groupby('Ano')['Sales'].transform('sum')
+    region_year['Percentage'] = (region_year['Sales'] / total_sales) * 100
+
+    #gráfico de vendas anuais
     fig_bar = px.bar(
         dados_agg,
         x = 'Ano',
@@ -88,7 +95,13 @@ def update_graph(seguimento_selecionado):
         category_orders={'Ano': sorted(dados_agg['Ano'].unique())}
     ).update_layout(
             xaxis={'type': 'category'},  # Garante que o ano seja tratado como categoria
-            plot_bgcolor='rgba(0,0,0,0)'
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend = dict(
+                orientation = "h",
+                yanchor = 'bottom',
+                y = 1,
+                xanchor = "left"
+            )
         )
 
     fig_bar.update_traces(
@@ -96,28 +109,33 @@ def update_graph(seguimento_selecionado):
         textposition='outside',
         marker_line_width=1.5,
         opacity=1,
-        textfont_size=200
+        textfont_size=20
     )
 
-    region_counts = dados_filtrados['Region'].value_counts().reset_index()
-    region_counts.columns = ['Region', 'Count']
-
-    fig_pie = px.pie(
-        region_counts,
-        names = 'Region',
-        values = 'Count',
-        title = f'Procentegem de Participação por Região',
-        labels ={'Region' : 'Região', 'Procentagem' : 'Participação'},
-        color_discrete_sequence=px.colors.qualitative.Pastel
+    #gráfico de porcentagem anual de vendas por região
+    fig_stacked = px.bar(
+        region_year,
+        x = 'Ano',
+        y = 'Percentage',
+        color= 'Region',
+        title = 'Participação regional de vendas',
+        labels ={'Percentage' : 'Participação (%)', 'Ano' : 'Ano', 'Region' : 'Região'},
+        text = 'Percentage',
+        barmode = 'stack',
+        color_discrete_sequence=px.colors.qualitative.Bold
+    ).update_layout(
+        yaxis = {'ticksuffix' : '%'},
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis={'type': 'category'}
     )
     
-    fig_pie.update_traces(
-        textposition='outside',
-        textinfo='percent',
-        insidetextorientation='radial'
+    fig_stacked.update_traces(
+        texttemplate='%{text:.1f}%',
+        textposition='inside',
+        marker_line_width=0.5
     )
 
 
-    return fig_bar,fig_pie
+    return fig_bar,fig_stacked
 
 app.run(debug=True)
