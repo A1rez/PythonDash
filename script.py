@@ -1,7 +1,5 @@
 #importando bibliotecas
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from dash import Dash, html, dcc, callback, Output, Input
 import plotly.express as px
 import datetime as dt
