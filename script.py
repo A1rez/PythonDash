@@ -18,7 +18,7 @@ app = Dash()
 
 #layout
 app.layout = html.Div([
-    html.H1("Vendas Anuais", style = {'textAlign': 'center', 'fontWeight': 'bold'}),
+    html.H1("Overview de Vendas", style = {'textAlign': 'center', 'fontWeight': 'bold'}),
 
     html.Div([
         html.Div([
@@ -42,28 +42,35 @@ app.layout = html.Div([
         })
     ]),
 
-    html.Div([
-        #gráfico de barras
-        html.Div([
-            dcc.Graph(
+    dcc.Graph(
                 id = 'grafico-de-vendas',
-                style = {'height':'100vh'}
-            )
-        ], style={'width': '50%', 'display': 'inline-block'}),
+                style = {'height':'80vh', 'margin-bottom':'20px'}
+            ),
+    
 
-        #gráfico de pizza
+    html.Div([
+        #gráfico de participação por região
         html.Div([
             dcc.Graph(
                 id = 'grafico-regiao',
-                style = {'height':'60vh'}
+                style = {'height':'75vh'}
             )
-        ],style={'width': '50%', 'display': 'inline-block'})
-    ],style={'display': 'flex'})
-])
+        ],style={'width': '50%', 'display': 'inline-block'}),
+
+        #gráfico tempo médio de envio
+        html.Div([
+            dcc.Graph(
+                id = 'grafico-tempo-envio',
+                style = {'height': '75vh'}
+            )
+            ], style = {'width': '50%', 'display': 'inline-block'}),
+    ],style = {'display': 'flex'})
+], style = {'height' : '500px'})
 
 @app.callback(
     [Output('grafico-de-vendas','figure'),
-     Output('grafico-regiao', 'figure')],
+     Output('grafico-regiao', 'figure'),
+     Output('grafico-tempo-envio', 'figure')],
     Input('seguimento', 'value')
 )
 
@@ -100,7 +107,8 @@ def update_graph(seguimento_selecionado):
                 orientation = "h",
                 yanchor = 'bottom',
                 y = 1,
-                xanchor = "left"
+                xanchor = "left",
+                x = -0.1
             )
         )
 
@@ -109,7 +117,7 @@ def update_graph(seguimento_selecionado):
         textposition='outside',
         marker_line_width=1.5,
         opacity=1,
-        textfont_size=20
+        textfont_size=200
     )
 
     #gráfico de porcentagem anual de vendas por região
@@ -135,7 +143,34 @@ def update_graph(seguimento_selecionado):
         marker_line_width=0.5
     )
 
+    #gráfico do tempo médio de envio
+    dados_filtrados["tempo de envio"] = (dados_filtrados['Ship Date'] - dados_filtrados['Order Date']).dt.days
+    tempo_de_envio = dados_filtrados.groupby(['Ano','Ship Mode'], as_index = False)['tempo de envio'].mean()
 
-    return fig_bar,fig_stacked
+    fig_shipping = px.bar(
+        tempo_de_envio,
+        x= 'Ano',
+        y = 'tempo de envio',
+        color = 'Ship Mode',
+        title = 'Tempo médio de envio (dias)',
+        labels = {'tempo de envio' : 'Dias', 'Ano' : 'Ano', 'Ship Mode' : 'Modo de Envio'},
+        text = 'tempo de envio',
+        barmode = 'group',
+        color_discrete_sequence=px.colors.qualitative.Vivid
+    ).update_layout(
+        xaxis={'type': 'category'},
+        plot_bgcolor='rgba(0,0,0,0)',
+        legend=dict(orientation="h", yanchor="bottom", y=-0.4, xanchor="center", x=0.5)
+    )
+    
+    fig_shipping.update_traces(
+        texttemplate='%{text:.1f}',
+        textposition='outside',
+        marker_line_width=1,
+        opacity=0.8
+    )
+
+
+    return fig_bar,fig_stacked, fig_shipping
 
 app.run(debug=True)
